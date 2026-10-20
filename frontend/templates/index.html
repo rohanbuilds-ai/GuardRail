@@ -138,13 +138,23 @@
           </div>
 
           <div class="flex items-center justify-between pt-1">
-            <div class="flex items-center space-x-2 text-xs text-slate-400">
-              <label for="analystRoleSelect" class="text-slate-400">Role Context:</label>
-              <select id="analystRoleSelect" class="bg-dark-950 border border-slate-700 rounded px-2 py-1 text-slate-200 text-xs">
-                <option value="tier_1">Tier-1 Analyst</option>
-                <option value="tier_2">Tier-2 Analyst</option>
-                <option value="lead">Lead Responder</option>
-              </select>
+            <div class="flex items-center space-x-3 text-xs text-slate-400">
+              <div class="flex items-center space-x-1.5">
+                <label for="analystRoleSelect" class="text-slate-400">Role Context:</label>
+                <select id="analystRoleSelect" class="bg-dark-950 border border-slate-700 rounded px-2 py-1 text-slate-200 text-xs">
+                  <option value="tier_1">Tier-1 Analyst</option>
+                  <option value="tier_2">Tier-2 Analyst</option>
+                  <option value="lead">Lead Responder</option>
+                </select>
+              </div>
+
+              <div class="flex items-center space-x-1.5">
+                <label for="executionModeSelect" class="text-slate-400">Defense Mode:</label>
+                <select id="executionModeSelect" class="bg-dark-950 border border-slate-700 rounded px-2 py-1 text-slate-200 text-xs font-mono font-medium">
+                  <option value="hardened" selected>Hardened (Secure)</option>
+                  <option value="baseline">Baseline (Vulnerable Demo)</option>
+                </select>
+              </div>
             </div>
 
             <button
@@ -169,9 +179,12 @@
             </span>
           </div>
           <span id="executionModeBadge" class="text-xs text-slate-400 font-mono bg-slate-800 px-2 py-1 rounded">
-            Mode: Baseline
+            Mode: Hardened
           </span>
         </div>
+
+        <!-- Security Alerts Container (New in Phase 4) -->
+        <div id="securityAlertsContainer" class="hidden space-y-1.5"></div>
 
         <!-- Summary -->
         <div class="space-y-1">

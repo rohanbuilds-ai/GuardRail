@@ -87,6 +87,9 @@ class InvestigationRequest(BaseModel):
     analyst_role: Literal["tier_1", "tier_2", "lead"] = Field(
         default="tier_1", description="Analyst permission level"
     )
+    execution_mode: Literal["baseline", "hardened"] = Field(
+        default="hardened", description="Agent defense mode: baseline or hardened"
+    )
 
 
 class InvestigationResponse(BaseModel):
@@ -108,4 +111,7 @@ class InvestigationResponse(BaseModel):
     )
     confidence: Literal["low", "medium", "high"] = "medium"
     tool_executions: List[ToolExecutionRecord] = Field(default_factory=list)
-    execution_mode: Literal["baseline", "hardened"] = "baseline"
+    execution_mode: Literal["baseline", "hardened"] = "hardened"
+    security_alerts: List[str] = Field(
+        default_factory=list, description="Security policy warnings or canary redaction alerts"
+    )

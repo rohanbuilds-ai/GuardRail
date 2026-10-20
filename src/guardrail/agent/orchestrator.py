@@ -10,6 +10,8 @@ import logging
 import re
 import sqlite3
 from typing import Any, Dict, List, Optional, Set
+from guardrail.agent.baseline import BaselineAgent
+from guardrail.agent.hardened import HardenedAgent
 from guardrail.config import settings
 from guardrail.mcp.client import MCPClientManager
 from guardrail.providers.base import BaseLLMProvider
@@ -175,142 +177,21 @@ class AgentOrchestrator:
         request: InvestigationRequest,
         conn: Optional[sqlite3.Connection] = None,
     ) -> InvestigationResponse:
-        """Execute a bounded multi-turn investigation workflow."""
-        db_conn = self.db_conn or conn
-
-        system_instruction = (
-            "You are an AI Security Analyst investigating synthetic security incidents. "
-            "You have access to approved read-only tools to retrieve evidence from the security database. "
-            "Evidence Grounding Requirement:\n"
-            "- You must only cite record IDs (e.g. DOC-001, LOG-001) that were actually returned in tool outputs.\n"
-            "- Never fabricate or assume record IDs.\n"
-            "- If information is incomplete, clearly state the uncertainty and missing logs in your report."
-        )
-
-        user_prompt = (
-            f"Analyst Role: {request.analyst_role}\n"
-            f"Target Incident: {request.incident_id}\n"
-            f"Investigation Objective: {request.query}"
-        )
-
-        tools = await self.get_tool_definitions()
-        history: List[Dict[str, Any]] = []
-        tool_records: List[ToolExecutionRecord] = []
-        evidence_ledger: Set[str] = set()
-
-        iteration = 0
-        while iteration < self.max_tool_iterations:
-            # Model Turn: Decide next action or produce findings
-            turn_response = await self.provider.generate_response(
-                system_instruction=system_instruction,
-                user_prompt=user_prompt,
-                history=history,
-                tools=tools,
+        """Execute investigation routing cleanly to BaselineAgent or HardenedAgent."""
+        if request.execution_mode == "baseline":
+            baseline_agent = BaselineAgent(
+                provider=self.provider,
+                mcp_client=self.mcp_client,
+                max_tool_iterations=self.max_tool_iterations,
+                db_conn=self.db_conn,
             )
+            return await baseline_agent.investigate(request, conn)
 
-            # If the model produced no tool calls, it is ready to synthesize
-            if not turn_response.tool_calls:
-                break
-
-            # Process each requested tool call
-            for tool_call in turn_response.tool_calls:
-                if len(tool_records) >= self.max_tool_iterations:
-                    logger.warning(
-                        f"Investigation exceeded max tool iteration budget of {self.max_tool_iterations}."
-                    )
-                    history.append(
-                        {
-                            "role": "tool",
-                            "name": tool_call.name,
-                            "content": json.dumps(
-                                {
-                                    "warning": f"Tool execution budget exhausted (max {self.max_tool_iterations} calls)."
-                                }
-                            ),
-                        }
-                    )
-                    break
-
-                rec, output_content, discovered_ids = await self.execute_tool(
-                    tool_call.name, tool_call.arguments, conn=db_conn
-                )
-                tool_records.append(rec)
-                evidence_ledger.update(discovered_ids)
-
-                history.append(
-                    {
-                        "role": "tool",
-                        "name": tool_call.name,
-                        "content": output_content or json.dumps({"status": rec.status}),
-                    }
-                )
-
-            iteration += 1
-
-        # Final Synthesis Turn: Ensure structured report
-        synthesis_prompt = (
-            f"Based on the tool evidence gathered above for {request.incident_id}, synthesize a structured investigation report. "
-            "Output valid JSON containing:\n"
-            "- summary: High-level overview of the incident\n"
-            "- timeline_findings: List of sequential chronological points supported by evidence\n"
-            "- root_cause_analysis: Probable root cause or vector\n"
-            "- cited_records: List of record IDs (e.g. DOC-001, LOG-001) that support your findings\n"
-            "- uncertainty_and_limitations: Gaps in evidence or investigative boundaries\n"
-            "- confidence: 'low', 'medium', or 'high'"
+        # Default to HardenedAgent
+        hardened_agent = HardenedAgent(
+            provider=self.provider,
+            mcp_client=self.mcp_client,
+            max_tool_iterations=self.max_tool_iterations,
+            db_conn=self.db_conn,
         )
-
-        final_turn = await self.provider.generate_response(
-            system_instruction=system_instruction,
-            user_prompt=synthesis_prompt,
-            history=history,
-            tools=None,
-        )
-
-        # Parse model synthesis into structured response
-        try:
-            parsed = json.loads(final_turn.content or "{}")
-        except json.JSONDecodeError:
-            parsed = {
-                "summary": final_turn.content or "Investigation concluded.",
-                "timeline_findings": [],
-                "root_cause_analysis": "Direct output parsing failed; see summary.",
-                "cited_records": [],
-                "uncertainty_and_limitations": "Model response was not formatted in strict JSON.",
-                "confidence": "low",
-            }
-
-        raw_cited = parsed.get("cited_records", [])
-
-        # Grounding Enforcement: Verify cited records against evidence ledger
-        grounded_citations: List[str] = []
-        hallucinated_citations: List[str] = []
-
-        for cid in raw_cited:
-            if cid in evidence_ledger or not evidence_ledger:
-                grounded_citations.append(cid)
-            else:
-                hallucinated_citations.append(cid)
-
-        # Document any ungrounded citations in uncertainty
-        uncertainty = parsed.get(
-            "uncertainty_and_limitations",
-            "Analysis bounded by synthetic logs and available documentation.",
-        )
-        if hallucinated_citations:
-            uncertainty += f" [Note: Citations {hallucinated_citations} could not be verified in tool evidence ledger and were excluded.]"
-
-        return InvestigationResponse(
-            incident_id=request.incident_id,
-            query=request.query,
-            analyst_role=request.analyst_role,
-            summary=parsed.get("summary", "Investigation completed."),
-            timeline_findings=parsed.get("timeline_findings", []),
-            root_cause_analysis=parsed.get(
-                "root_cause_analysis", "No root cause identified."
-            ),
-            cited_records=grounded_citations,
-            uncertainty_and_limitations=uncertainty,
-            confidence=parsed.get("confidence", "medium"),
-            tool_executions=tool_records,
-            execution_mode="baseline",
-        )
+        return await hardened_agent.investigate(request, conn)

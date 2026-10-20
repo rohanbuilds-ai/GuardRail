@@ -142,6 +142,9 @@ function setupEventListeners() {
 async function runInvestigation() {
   const query = document.getElementById("queryInput").value.trim();
   const analystRole = document.getElementById("analystRoleSelect").value;
+  const executionMode = document.getElementById("executionModeSelect")
+    ? document.getElementById("executionModeSelect").value
+    : "hardened";
   const submitBtn = document.getElementById("submitBtn");
   const resultsCard = document.getElementById("resultsCard");
   const emptyStateCard = document.getElementById("emptyStateCard");
@@ -164,6 +167,7 @@ async function runInvestigation() {
         incident_id: selectedIncidentId,
         query: query,
         analyst_role: analystRole,
+        execution_mode: executionMode,
       }),
     });
 
@@ -224,8 +228,36 @@ function displayResults(data) {
   const confBadge = document.getElementById("confidenceBadge");
   confBadge.textContent = `${data.confidence} Confidence`;
 
+  // Mode badge styling based on hardened vs baseline
   const modeBadge = document.getElementById("executionModeBadge");
-  modeBadge.textContent = `Mode: ${data.execution_mode.toUpperCase()}`;
+  if (data.execution_mode === "hardened") {
+    modeBadge.className = "text-xs font-mono bg-emerald-950 text-emerald-400 border border-emerald-800 px-2 py-1 rounded";
+    modeBadge.textContent = "Mode: HARDENED (SECURE)";
+  } else {
+    modeBadge.className = "text-xs font-mono bg-amber-950 text-amber-400 border border-amber-800 px-2 py-1 rounded";
+    modeBadge.textContent = "Mode: BASELINE (VULNERABLE DEMO)";
+  }
+
+  // Security Alerts display
+  const alertsContainer = document.getElementById("securityAlertsContainer");
+  if (alertsContainer) {
+    alertsContainer.innerHTML = "";
+    if (data.security_alerts && data.security_alerts.length > 0) {
+      alertsContainer.classList.remove("hidden");
+      data.security_alerts.forEach((alertMsg) => {
+        const alertDiv = document.createElement("div");
+        alertDiv.className =
+          "p-2.5 rounded-lg bg-red-950/40 border border-red-800/80 text-red-300 text-xs flex items-start space-x-2";
+        alertDiv.innerHTML = `
+          <i class="fa-solid fa-shield-virus text-red-400 text-xs mt-0.5"></i>
+          <span class="font-mono">${alertMsg}</span>
+        `;
+        alertsContainer.appendChild(alertDiv);
+      });
+    } else {
+      alertsContainer.classList.add("hidden");
+    }
+  }
 
   // Cited records
   const citedContainer = document.getElementById("citedRecordsContainer");
