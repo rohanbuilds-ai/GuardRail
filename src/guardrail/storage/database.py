@@ -10,7 +10,7 @@ We also support in-memory databases (':memory:') for isolated, ultra-fast test r
 import sqlite3
 from typing import Any, Dict, List, Optional
 from guardrail.config import settings
-from guardrail.storage.models import IncidentDocument, IncidentRecord
+from guardrail.storage.models import IncidentDocument, IncidentRecord, SecurityLogRecord
 
 
 def get_db_connection(db_path: Optional[str] = None) -> sqlite3.Connection:
@@ -137,3 +137,44 @@ def search_documents_db(
 
     rows = cursor.fetchall()
     return [IncidentDocument(**dict(row)) for row in rows]
+
+
+def query_security_logs_db(
+    conn: sqlite3.Connection,
+    incident_id: Optional[str] = None,
+    event_type: Optional[str] = None,
+    source_ip: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 20,
+) -> List[SecurityLogRecord]:
+    """Query synthetic security logs with dynamic, fully parameterized filters.
+
+    Security Principles:
+    1. Parameterized Queries: All filter values are bound via '?' placeholders.
+    2. Column Allowlisting: Only hardcoded, static column names are interpolated.
+    3. Strict Limit: A bounded integer limit is always applied to prevent memory exhaustion.
+    """
+    cursor = conn.cursor()
+    conditions = []
+    params: List[Any] = []
+
+    if incident_id:
+        conditions.append("incident_id = ?")
+        params.append(incident_id)
+    if event_type:
+        conditions.append("event_type = ?")
+        params.append(event_type)
+    if source_ip:
+        conditions.append("source_ip = ?")
+        params.append(source_ip)
+    if status:
+        conditions.append("status = ?")
+        params.append(status)
+
+    where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
+    sql = f"SELECT * FROM security_logs{where_clause} ORDER BY timestamp ASC LIMIT ?;"
+    params.append(limit)
+
+    cursor.execute(sql, tuple(params))
+    rows = cursor.fetchall()
+    return [SecurityLogRecord(**dict(row)) for row in rows]

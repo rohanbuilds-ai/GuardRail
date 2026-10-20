@@ -48,6 +48,21 @@ class IncidentDocument(BaseModel):
     created_at: str = Field(..., description="ISO 8601 creation timestamp")
 
 
+class SecurityLogRecord(BaseModel):
+    """Represents a synthetic security log entry (auth, network, access)."""
+
+    id: str = Field(..., description="Unique log ID (e.g. LOG-001)")
+    incident_id: str = Field(..., description="Associated incident ID")
+    timestamp: str = Field(..., description="ISO 8601 timestamp")
+    event_type: str = Field(..., description="Type of event (e.g. AUTH_FAILED)")
+    source_ip: str = Field(..., description="Source IP address")
+    destination_ip: str = Field(..., description="Destination IP address")
+    user_id: str = Field(..., description="User identity or service account")
+    action: str = Field(..., description="Security action taken")
+    status: str = Field(..., description="Status (e.g. SUCCESS, FAILED)")
+    details: str = Field(..., description="Technical event details")
+
+
 class ToolExecutionRecord(BaseModel):
     """Audit log of a single tool invocation made during an investigation."""
 
