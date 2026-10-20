@@ -212,6 +212,14 @@ function displayResults(data) {
   // Root cause
   document.getElementById("rootCauseText").textContent = data.root_cause_analysis;
 
+  // Uncertainty & Limitations
+  const uncertaintyEl = document.getElementById("uncertaintyText");
+  if (uncertaintyEl) {
+    uncertaintyEl.textContent =
+      data.uncertainty_and_limitations ||
+      "Analysis bounded by synthetic logs and available documentation.";
+  }
+
   // Confidence & Mode
   const confBadge = document.getElementById("confidenceBadge");
   confBadge.textContent = `${data.confidence} Confidence`;

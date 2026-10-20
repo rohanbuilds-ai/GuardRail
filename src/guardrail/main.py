@@ -18,6 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader
 
 from guardrail.agent.investigator import AgentInvestigator
+from guardrail.agent.orchestrator import AgentOrchestrator
 from guardrail.config import PROJECT_ROOT, settings
 from guardrail.storage.database import (
     get_all_incidents,
@@ -141,8 +142,8 @@ async def investigate_incident(request: InvestigationRequest):
                 detail=f"Incident '{request.incident_id}' not found in database.",
             )
 
-        investigator = AgentInvestigator()
-        response = await investigator.investigate(request, conn)
+        orchestrator = AgentOrchestrator()
+        response = await orchestrator.investigate(request, conn)
         return response
     finally:
         conn.close()

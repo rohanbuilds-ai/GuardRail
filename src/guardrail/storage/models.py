@@ -102,6 +102,10 @@ class InvestigationResponse(BaseModel):
         default_factory=list,
         description="Explicit record IDs (e.g. DOC-001) supporting factual claims",
     )
+    uncertainty_and_limitations: Optional[str] = Field(
+        default="Analysis bounded by synthetic logs and available documentation.",
+        description="Identified uncertainties, data gaps, or investigative limitations",
+    )
     confidence: Literal["low", "medium", "high"] = "medium"
     tool_executions: List[ToolExecutionRecord] = Field(default_factory=list)
     execution_mode: Literal["baseline", "hardened"] = "baseline"
