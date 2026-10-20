@@ -1,0 +1,92 @@
+"""Domain models and schemas for GuardRail.
+
+Design Decision:
+We use Pydantic models for both internal business entities and API request/response
+contracts. This guarantees strong typing, automatic schema validation, and safe
+serialization between database rows, agent components, and API callers.
+"""
+
+from datetime import datetime
+from typing import Any, Dict, List, Literal, Optional
+from pydantic import BaseModel, Field
+
+
+class IncidentRecord(BaseModel):
+    """Represents a synthetic security incident in the system."""
+
+    id: str = Field(..., description="Unique incident identifier (e.g. INC-001)")
+    title: str = Field(..., description="Brief title describing the incident")
+    severity: Literal["low", "medium", "high", "critical"] = Field(
+        ..., description="Incident severity level"
+    )
+    status: Literal["open", "investigating", "contained", "closed"] = Field(
+        default="investigating", description="Current lifecycle state"
+    )
+    description: str = Field(..., description="High-level description of the incident")
+    sensitivity_tier: Literal["tier_1", "tier_2", "tier_3"] = Field(
+        default="tier_1",
+        description="Analyst authorization tier required to inspect this incident",
+    )
+    created_at: str = Field(..., description="ISO 8601 creation timestamp")
+    assigned_analyst: str = Field(default="secops-auto")
+
+
+class IncidentDocument(BaseModel):
+    """Approved synthetic incident documentation, notes, or runbooks."""
+
+    id: str = Field(..., description="Unique document ID (e.g. DOC-001)")
+    incident_id: str = Field(..., description="Associated incident ID")
+    title: str = Field(..., description="Document title")
+    doc_type: Literal["initial_triage", "analyst_notes", "forensics_report", "runbook"] = (
+        Field(..., description="Category of document")
+    )
+    content: str = Field(..., description="Text content of the document")
+    classification: Literal["public", "internal", "restricted"] = Field(
+        default="internal", description="Document access classification"
+    )
+    author: str = Field(default="system")
+    created_at: str = Field(..., description="ISO 8601 creation timestamp")
+
+
+class ToolExecutionRecord(BaseModel):
+    """Audit log of a single tool invocation made during an investigation."""
+
+    tool_name: str
+    arguments: Dict[str, Any]
+    result_summary: str
+    record_count: int = 0
+    status: Literal["success", "denied", "error"] = "success"
+    error_message: Optional[str] = None
+
+
+class InvestigationRequest(BaseModel):
+    """User/Analyst request to investigate an incident."""
+
+    incident_id: str = Field(..., description="Target incident ID (e.g. INC-001)")
+    query: str = Field(
+        ...,
+        min_length=3,
+        max_length=500,
+        description="Investigation question or analytical task",
+    )
+    analyst_role: Literal["tier_1", "tier_2", "lead"] = Field(
+        default="tier_1", description="Analyst permission level"
+    )
+
+
+class InvestigationResponse(BaseModel):
+    """Structured response synthesized by the AI agent."""
+
+    incident_id: str
+    query: str
+    analyst_role: str
+    summary: str
+    timeline_findings: List[str] = Field(default_factory=list)
+    root_cause_analysis: str
+    cited_records: List[str] = Field(
+        default_factory=list,
+        description="Explicit record IDs (e.g. DOC-001) supporting factual claims",
+    )
+    confidence: Literal["low", "medium", "high"] = "medium"
+    tool_executions: List[ToolExecutionRecord] = Field(default_factory=list)
+    execution_mode: Literal["baseline", "hardened"] = "baseline"

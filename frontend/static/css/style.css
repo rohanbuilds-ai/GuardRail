@@ -1,0 +1,31 @@
+/* Custom stylesheet refinements for GuardRail */
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #090d16;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Pulse animation for active investigations */
+@keyframes pulse-border {
+  0%, 100% { border-color: rgba(34, 197, 94, 0.2); }
+  50% { border-color: rgba(34, 197, 94, 0.6); }
+}
+
+.investigating-pulse {
+  animation: pulse-border 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
