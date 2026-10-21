@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
   fetchHealth();
   fetchIncidents();
   setupEventListeners();
+  initEvaluationLab();
 });
 
 async function fetchHealth() {
@@ -309,4 +310,319 @@ function displayResults(data) {
   } else {
     traceContent.innerHTML = `<div class="text-slate-500 italic p-2">No tools were invoked during this investigation.</div>`;
   }
+}
+
+/**
+ * -----------------------------------------------------------------------------
+ * Phase 5: Red-Team Evaluation Lab Client Logic
+ * -----------------------------------------------------------------------------
+ */
+
+let allScenarios = [];
+let latestEvaluationData = null;
+
+function initEvaluationLab() {
+  const tabWorkspaceBtn = document.getElementById("tabWorkspaceBtn");
+  const tabEvalBtn = document.getElementById("tabEvalBtn");
+  const workspaceView = document.getElementById("workspaceView");
+  const evaluationView = document.getElementById("evaluationView");
+
+  if (tabWorkspaceBtn && tabEvalBtn) {
+    tabWorkspaceBtn.addEventListener("click", () => {
+      workspaceView.classList.remove("hidden");
+      evaluationView.classList.add("hidden");
+      tabWorkspaceBtn.classList.add("text-emerald-400", "bg-slate-800/80");
+      tabWorkspaceBtn.classList.remove("text-slate-400");
+      tabEvalBtn.classList.remove("text-rose-400", "bg-slate-800/80");
+      tabEvalBtn.classList.add("text-slate-400");
+    });
+
+    tabEvalBtn.addEventListener("click", () => {
+      evaluationView.classList.remove("hidden");
+      workspaceView.classList.add("hidden");
+      tabEvalBtn.classList.add("text-rose-400", "bg-slate-800/80");
+      tabEvalBtn.classList.remove("text-slate-400");
+      tabWorkspaceBtn.classList.remove("text-emerald-400", "bg-slate-800/80");
+      tabWorkspaceBtn.classList.add("text-slate-400");
+
+      if (allScenarios.length === 0) {
+        fetchScenarios();
+      }
+    });
+  }
+
+  // Filters
+  const categoryFilter = document.getElementById("evalCategoryFilter");
+  const typeFilter = document.getElementById("evalTypeFilter");
+  if (categoryFilter) categoryFilter.addEventListener("change", renderScenarioTable);
+  if (typeFilter) typeFilter.addEventListener("change", renderScenarioTable);
+
+  // Run Benchmark
+  const runBtn = document.getElementById("runEvalSuiteBtn");
+  if (runBtn) {
+    runBtn.addEventListener("click", runEvaluationBenchmark);
+  }
+
+  // Exports
+  const exportJsonBtn = document.getElementById("exportJsonBtn");
+  const exportCsvBtn = document.getElementById("exportCsvBtn");
+  if (exportJsonBtn) {
+    exportJsonBtn.addEventListener("click", () => {
+      window.location.href = "/api/evaluations/export/json";
+    });
+  }
+  if (exportCsvBtn) {
+    exportCsvBtn.addEventListener("click", () => {
+      window.location.href = "/api/evaluations/export/csv";
+    });
+  }
+
+  // Modal Dismiss
+  const closeModalBtn = document.getElementById("closeModalBtn");
+  const modalDismissBtn = document.getElementById("modalDismissBtn");
+  const modal = document.getElementById("scenarioModal");
+  if (closeModalBtn) closeModalBtn.addEventListener("click", () => modal.classList.add("hidden"));
+  if (modalDismissBtn) modalDismissBtn.addEventListener("click", () => modal.classList.add("hidden"));
+  if (modal) {
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) modal.classList.add("hidden");
+    });
+  }
+
+  // Check if previous run exists on server
+  fetchLatestEvaluation();
+}
+
+async function fetchScenarios() {
+  const tbody = document.getElementById("evaluationTableBody");
+  try {
+    const res = await fetch("/api/scenarios");
+    if (!res.ok) throw new Error("Failed to load evaluation scenarios");
+    allScenarios = await res.json();
+    document.getElementById("scenarioCountBadge").textContent = `${allScenarios.length} Scenarios`;
+    renderScenarioTable();
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="7" class="py-4 text-center text-rose-400">Error loading scenarios: ${err.message}</td></tr>`;
+  }
+}
+
+async function fetchLatestEvaluation() {
+  try {
+    const res = await fetch("/api/evaluations/latest");
+    if (res.ok) {
+      latestEvaluationData = await res.json();
+      updateMetricsDisplay(latestEvaluationData.baseline_metrics, latestEvaluationData.hardened_metrics);
+      const badge = document.getElementById("evalStatusBadge");
+      if (badge) {
+        badge.textContent = `Completed (${latestEvaluationData.run_id})`;
+        badge.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800";
+      }
+      if (allScenarios.length === 0) {
+        await fetchScenarios();
+      } else {
+        renderScenarioTable();
+      }
+    }
+  } catch (err) {
+    // No previous run, normal state
+  }
+}
+
+async function runEvaluationBenchmark() {
+  const runBtn = document.getElementById("runEvalSuiteBtn");
+  const statusBadge = document.getElementById("evalStatusBadge");
+  const originalHTML = runBtn.innerHTML;
+
+  runBtn.disabled = true;
+  runBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-xs"></i><span>Running (30 Scenarios)...</span>`;
+  statusBadge.textContent = "Executing...";
+  statusBadge.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800 animate-pulse";
+
+  try {
+    const res = await fetch("/api/evaluations/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || `Server error: ${res.status}`);
+    }
+
+    latestEvaluationData = await res.json();
+    updateMetricsDisplay(latestEvaluationData.baseline_metrics, latestEvaluationData.hardened_metrics);
+    statusBadge.textContent = `Completed (${latestEvaluationData.run_id})`;
+    statusBadge.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800";
+
+    renderScenarioTable();
+  } catch (err) {
+    alert(`Evaluation benchmark failed: ${err.message}`);
+    statusBadge.textContent = "Failed";
+    statusBadge.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-800";
+  } finally {
+    runBtn.disabled = false;
+    runBtn.innerHTML = originalHTML;
+  }
+}
+
+function updateMetricsDisplay(baseline, hardened) {
+  if (!baseline || !hardened) return;
+
+  const updateCard = (elId, metric) => {
+    const el = document.getElementById(elId);
+    if (el) {
+      el.textContent = `${metric.percentage}% (${metric.numerator}/${metric.denominator})`;
+    }
+  };
+
+  updateCard("metricAsrBaseline", baseline.attack_success_rate);
+  updateCard("metricAsrHardened", hardened.attack_success_rate);
+
+  updateCard("metricDsrBaseline", baseline.defense_success_rate);
+  updateCard("metricDsrHardened", hardened.defense_success_rate);
+
+  updateCard("metricFbrBaseline", baseline.false_block_rate);
+  updateCard("metricFbrHardened", hardened.false_block_rate);
+
+  updateCard("metricClrBaseline", baseline.canary_leakage_rate);
+  updateCard("metricClrHardened", hardened.canary_leakage_rate);
+
+  updateCard("metricCirBaseline", baseline.citation_integrity_rate);
+  updateCard("metricCirHardened", hardened.citation_integrity_rate);
+}
+
+function renderScenarioTable() {
+  const tbody = document.getElementById("evaluationTableBody");
+  const categoryFilter = document.getElementById("evalCategoryFilter") ? document.getElementById("evalCategoryFilter").value : "all";
+  const typeFilter = document.getElementById("evalTypeFilter") ? document.getElementById("evalTypeFilter").value : "all";
+
+  let filtered = allScenarios.filter((sc) => {
+    if (categoryFilter !== "all" && sc.category !== categoryFilter) return false;
+    if (typeFilter === "adversarial" && !sc.is_adversarial) return false;
+    if (typeFilter === "benign" && sc.is_adversarial) return false;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-500">No scenarios match the selected filters.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = "";
+  filtered.forEach((sc) => {
+    // Find baseline & hardened results from latestEvaluationData if available
+    let baselineRes = null;
+    let hardenedRes = null;
+    if (latestEvaluationData && latestEvaluationData.scenario_results) {
+      baselineRes = latestEvaluationData.scenario_results.find(
+        (r) => r.scenario_id === sc.id && r.execution_mode === "baseline"
+      );
+      hardenedRes = latestEvaluationData.scenario_results.find(
+        (r) => r.scenario_id === sc.id && r.execution_mode === "hardened"
+      );
+    }
+
+    const tr = document.createElement("tr");
+    tr.className = "hover:bg-slate-800/40 transition cursor-pointer";
+    tr.addEventListener("click", () => openScenarioModal(sc.id));
+
+    const typeBadge = sc.is_adversarial
+      ? `<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-rose-950/60 text-rose-400 border border-rose-800/80">Adversarial</span>`
+      : `<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950/60 text-emerald-400 border border-emerald-800/80">Benign</span>`;
+
+    const formatOutcomeBadge = (res, mode) => {
+      if (!res) {
+        return `<span class="text-slate-500 font-mono text-[11px]">--</span>`;
+      }
+      if (res.is_false_block) {
+        return `<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-950 text-amber-400 border border-amber-800 font-semibold">FALSE BLOCK</span>`;
+      }
+      if (res.is_adversarial) {
+        if (res.attack_succeeded) {
+          return `<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-rose-950 text-rose-400 border border-rose-800 font-semibold">ATTACK SUCCEEDED</span>`;
+        }
+        return `<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-800 font-semibold">DEFENDED</span>`;
+      }
+      if (res.passed) {
+        return `<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-800 font-semibold">PASSED</span>`;
+      }
+      return `<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-rose-950 text-rose-400 border border-rose-800 font-semibold">FAILED</span>`;
+    };
+
+    tr.innerHTML = `
+      <td class="py-3 px-4 font-mono font-bold text-slate-200">${sc.id}</td>
+      <td class="py-3 px-4">
+        <div class="font-medium text-slate-100">${sc.name}</div>
+        <div class="text-[11px] text-slate-400 line-clamp-1">${sc.description}</div>
+      </td>
+      <td class="py-3 px-4 font-mono text-slate-300">${sc.category}</td>
+      <td class="py-3 px-4">${typeBadge}</td>
+      <td class="py-3 px-4">${formatOutcomeBadge(baselineRes, "baseline")}</td>
+      <td class="py-3 px-4">${formatOutcomeBadge(hardenedRes, "hardened")}</td>
+      <td class="py-3 px-4 text-right">
+        <button class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-[10px] transition border border-slate-700">
+          Details &rarr;
+        </button>
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+function openScenarioModal(scenarioId) {
+  const sc = allScenarios.find((s) => s.id === scenarioId);
+  if (!sc) return;
+
+  const modal = document.getElementById("scenarioModal");
+  document.getElementById("modalScenarioId").textContent = sc.id;
+  document.getElementById("modalScenarioName").textContent = sc.name;
+  document.getElementById("modalDescription").textContent = sc.description;
+  document.getElementById("modalQuery").textContent = sc.query;
+  document.getElementById("modalExpected").textContent = sc.expected_security_property;
+
+  const baselineOutcomeEl = document.getElementById("modalBaselineOutcome");
+  const hardenedOutcomeEl = document.getElementById("modalHardenedOutcome");
+
+  if (latestEvaluationData && latestEvaluationData.scenario_results) {
+    const bRes = latestEvaluationData.scenario_results.find(
+      (r) => r.scenario_id === sc.id && r.execution_mode === "baseline"
+    );
+    const hRes = latestEvaluationData.scenario_results.find(
+      (r) => r.scenario_id === sc.id && r.execution_mode === "hardened"
+    );
+
+    if (bRes) {
+      baselineOutcomeEl.innerHTML = `
+        <div class="space-y-1">
+          <div><strong class="text-slate-300">Status:</strong> ${bRes.passed ? "PASSED" : (bRes.attack_succeeded ? "ATTACK SUCCEEDED" : "FAILED")}</div>
+          <div><strong class="text-slate-300">Latency:</strong> ${bRes.execution_time_ms} ms</div>
+          <div><strong class="text-slate-300">Canary Leaked:</strong> ${bRes.canary_leaked ? "YES" : "NO"}</div>
+          <div><strong class="text-slate-300">Note:</strong> ${bRes.outcome_note}</div>
+        </div>
+      `;
+    } else {
+      baselineOutcomeEl.textContent = "Not evaluated in baseline mode.";
+    }
+
+    if (hRes) {
+      hardenedOutcomeEl.innerHTML = `
+        <div class="space-y-1">
+          <div><strong class="text-slate-300">Status:</strong> ${hRes.defense_succeeded ? "DEFENDED" : (hRes.is_false_block ? "FALSE BLOCK" : "PASSED")}</div>
+          <div><strong class="text-slate-300">Latency:</strong> ${hRes.execution_time_ms} ms</div>
+          <div><strong class="text-slate-300">Canary Leaked:</strong> ${hRes.canary_leaked ? "YES" : "NO"}</div>
+          <div><strong class="text-slate-300">Alerts:</strong> ${hRes.security_alerts.length > 0 ? hRes.security_alerts.join("; ") : "None"}</div>
+          <div><strong class="text-slate-300">Note:</strong> ${hRes.outcome_note}</div>
+        </div>
+      `;
+    } else {
+      hardenedOutcomeEl.textContent = "Not evaluated in hardened mode.";
+    }
+  } else {
+    baselineOutcomeEl.textContent = "Run the evaluation suite to see baseline trace.";
+    hardenedOutcomeEl.textContent = "Run the evaluation suite to see hardened trace.";
+  }
+
+  modal.classList.remove("hidden");
 }

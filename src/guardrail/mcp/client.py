@@ -87,64 +87,69 @@ class MCPClientManager:
         """Execute a tool call against the MCP server with strict timeout handling."""
         params = self._get_server_params()
 
-        try:
-            async with stdio_client(params) as (read_stream, write_stream):
-                async with ClientSession(read_stream, write_stream) as session:
-                    await asyncio.wait_for(session.initialize(), timeout=self.timeout_seconds)
+        for attempt in range(2):
+            try:
+                async with stdio_client(params) as (read_stream, write_stream):
+                    async with ClientSession(read_stream, write_stream) as session:
+                        await asyncio.wait_for(session.initialize(), timeout=self.timeout_seconds)
 
-                    call_coro = session.call_tool(tool_name, arguments=arguments)
-                    result = await asyncio.wait_for(call_coro, timeout=self.timeout_seconds)
+                        call_coro = session.call_tool(tool_name, arguments=arguments)
+                        result = await asyncio.wait_for(call_coro, timeout=self.timeout_seconds)
 
-                    # Extract text content from result
-                    content_text = ""
-                    if result.content:
-                        content_text = "\n".join(
-                            item.text for item in result.content if hasattr(item, "text")
-                        )
+                        # Extract text content from result
+                        content_text = ""
+                        if result.content:
+                            content_text = "\n".join(
+                                item.text for item in result.content if hasattr(item, "text")
+                            )
 
-                    # Determine record count from JSON if possible
-                    record_count = 0
-                    try:
-                        parsed = json.loads(content_text)
-                        if "total_found" in parsed:
-                            record_count = parsed["total_found"]
-                        elif "found" in parsed and parsed["found"]:
-                            record_count = 1
-                    except Exception:
-                        pass
+                        # Determine record count from JSON if possible
+                        record_count = 0
+                        try:
+                            parsed = json.loads(content_text)
+                            if "total_found" in parsed:
+                                record_count = parsed["total_found"]
+                            elif "found" in parsed and parsed["found"]:
+                                record_count = 1
+                        except Exception:
+                            pass
 
-                    # Check for server-side error flag or validation error
-                    if getattr(result, "is_error", False) or '"trust_level": "system_error"' in content_text or '"error":' in content_text:
+                        # Check for server-side error flag or validation error
+                        if getattr(result, "is_error", False) or '"trust_level": "system_error"' in content_text or '"error":' in content_text:
+                            return MCPToolExecutionResult(
+                                tool_name=tool_name,
+                                arguments=arguments,
+                                content=content_text,
+                                status="error",
+                                record_count=0,
+                                error_message=content_text or "Tool validation or execution error reported by MCP server",
+                            )
+
                         return MCPToolExecutionResult(
                             tool_name=tool_name,
                             arguments=arguments,
                             content=content_text,
-                            status="error",
-                            record_count=0,
-                            error_message=content_text or "Tool validation or execution error reported by MCP server",
+                            status="success",
+                            record_count=record_count,
                         )
 
-                    return MCPToolExecutionResult(
-                        tool_name=tool_name,
-                        arguments=arguments,
-                        content=content_text,
-                        status="success",
-                        record_count=record_count,
-                    )
-
-        except asyncio.TimeoutError:
-            logger.warning(f"MCP tool call '{tool_name}' timed out after {self.timeout_seconds}s")
-            return MCPToolExecutionResult(
-                tool_name=tool_name,
-                arguments=arguments,
-                status="timeout",
-                error_message=f"MCP tool call exceeded timeout limit of {self.timeout_seconds} seconds",
-            )
-        except Exception as exc:
-            logger.error(f"MCP tool call '{tool_name}' failed with exception: {exc}")
-            return MCPToolExecutionResult(
-                tool_name=tool_name,
-                arguments=arguments,
-                status="error",
-                error_message=str(exc),
-            )
+            except asyncio.TimeoutError:
+                logger.warning(f"MCP tool call '{tool_name}' timed out after {self.timeout_seconds}s")
+                return MCPToolExecutionResult(
+                    tool_name=tool_name,
+                    arguments=arguments,
+                    status="timeout",
+                    error_message=f"MCP tool call exceeded timeout limit of {self.timeout_seconds} seconds",
+                )
+            except (Exception, BaseExceptionGroup) as exc:
+                if attempt == 0:
+                    logger.warning(f"MCP tool call '{tool_name}' transient error, retrying: {exc}")
+                    await asyncio.sleep(0.15)
+                    continue
+                logger.error(f"MCP tool call '{tool_name}' failed with exception: {exc}")
+                return MCPToolExecutionResult(
+                    tool_name=tool_name,
+                    arguments=arguments,
+                    status="error",
+                    error_message=str(exc),
+                )

@@ -35,17 +35,31 @@
 
   <!-- Top Navigation Bar -->
   <header class="bg-dark-900 border-b border-slate-800 px-6 py-3 flex items-center justify-between sticky top-0 z-50">
-    <div class="flex items-center space-x-3">
-      <div class="w-9 h-9 bg-emerald-500/10 border border-emerald-500/30 rounded-lg flex items-center justify-center text-emerald-400 font-bold shadow-lg shadow-emerald-950/50">
-        <i class="fa-solid fa-shield-halved text-lg"></i>
-      </div>
-      <div>
-        <div class="flex items-center space-x-2">
-          <span class="font-bold text-lg tracking-tight text-white">GuardRail</span>
-          <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-900/50 text-emerald-400 border border-emerald-700/50 font-mono">v{{ version }}</span>
+    <div class="flex items-center space-x-6">
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 bg-emerald-500/10 border border-emerald-500/30 rounded-lg flex items-center justify-center text-emerald-400 font-bold shadow-lg shadow-emerald-950/50">
+          <i class="fa-solid fa-shield-halved text-lg"></i>
         </div>
-        <p class="text-xs text-slate-400">Secure AI Agent & MCP Red-Team Lab</p>
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="font-bold text-lg tracking-tight text-white">GuardRail</span>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-900/50 text-emerald-400 border border-emerald-700/50 font-mono">v{{ version }}</span>
+          </div>
+          <p class="text-xs text-slate-400">Secure AI Agent & MCP Red-Team Lab</p>
+        </div>
       </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="flex items-center space-x-1 bg-dark-950 p-1 rounded-lg border border-slate-800">
+        <button id="tabWorkspaceBtn" class="nav-tab active-tab px-3 py-1.5 rounded-md text-xs font-medium text-emerald-400 bg-slate-800/80 transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-layer-group"></i>
+          <span>Incident Workspace</span>
+        </button>
+        <button id="tabEvalBtn" class="nav-tab px-3 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-vial-virus text-rose-400"></i>
+          <span>Red-Team Evaluation Lab</span>
+        </button>
+      </nav>
     </div>
 
     <!-- Provider & Mode Badges -->
@@ -63,8 +77,11 @@
     </div>
   </header>
 
-  <!-- Main Workspace Layout -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-12 gap-6">
+  <!-- Main Layout -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-6 flex flex-col">
+
+    <!-- TAB 1: INCIDENT WORKSPACE VIEW -->
+    <div id="workspaceView" class="grid grid-cols-12 gap-6 w-full">
 
     <!-- Column 1: Incident Selector (Left 4 cols) -->
     <section class="col-span-12 lg:col-span-4 flex flex-col space-y-4">
@@ -248,7 +265,268 @@
       </div>
 
     </section>
+    </div>
+    <!-- END TAB 1: WORKSPACE VIEW -->
+
+    <!-- TAB 2: RED-TEAM EVALUATION LAB VIEW -->
+    <div id="evaluationView" class="hidden w-full flex flex-col space-y-6">
+
+      <!-- Evaluation Controls Bar -->
+      <div class="bg-dark-900 border border-slate-800 rounded-xl p-5 shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-lg bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
+            <i class="fa-solid fa-flask-vial text-lg"></i>
+          </div>
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center space-x-2">
+              <span>Red-Team Security Evaluation Suite</span>
+              <span id="evalStatusBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">Ready</span>
+            </h2>
+            <p class="text-xs text-slate-400">30 Deterministic Scenarios • 10 Threat Categories • Baseline vs Hardened Policy</p>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2.5">
+          <!-- Category Filter -->
+          <select id="evalCategoryFilter" class="bg-dark-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-300">
+            <option value="all">All 10 Categories</option>
+            <option value="direct_prompt_injection">Direct Prompt Injection</option>
+            <option value="indirect_prompt_injection">Indirect Prompt Injection</option>
+            <option value="unauthorized_tool_use">Unauthorized Tool Use</option>
+            <option value="argument_validation">Argument Validation</option>
+            <option value="synthetic_canary_disclosure">Canary Disclosure</option>
+            <option value="data_isolation_rbac">Data Isolation / RBAC</option>
+            <option value="unsafe_retrieved_content">Unsafe Retrieved Content</option>
+            <option value="resource_exhaustion">Resource Exhaustion</option>
+            <option value="output_validation_citations">Citation Grounding</option>
+            <option value="benign_investigation_regression">Benign Regression</option>
+          </select>
+
+          <!-- Type Filter -->
+          <select id="evalTypeFilter" class="bg-dark-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-300">
+            <option value="all">All Scenarios</option>
+            <option value="adversarial">Adversarial Only</option>
+            <option value="benign">Benign Only</option>
+          </select>
+
+          <!-- Export Buttons -->
+          <div class="flex items-center space-x-1.5 border-l border-slate-800 pl-2.5">
+            <button id="exportJsonBtn" title="Export as JSON" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 transition flex items-center space-x-1">
+              <i class="fa-solid fa-code text-[11px] text-amber-400"></i>
+              <span>JSON</span>
+            </button>
+            <button id="exportCsvBtn" title="Export as CSV" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 transition flex items-center space-x-1">
+              <i class="fa-solid fa-table text-[11px] text-emerald-400"></i>
+              <span>CSV</span>
+            </button>
+          </div>
+
+          <!-- Run Button -->
+          <button id="runEvalSuiteBtn" class="bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white font-medium px-4 py-2 rounded-lg text-xs transition shadow-lg shadow-rose-950/50 flex items-center space-x-2 cursor-pointer">
+            <i class="fa-solid fa-bolt text-xs"></i>
+            <span>Run Benchmark</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Comparative Metric Cards (Baseline vs Hardened) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        
+        <!-- Card 1: Attack Success Rate (ASR) -->
+        <div class="bg-dark-900 border border-slate-800 rounded-xl p-4 space-y-2">
+          <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
+            <span>Attack Success (ASR)</span>
+            <i class="fa-solid fa-biohazard text-rose-400"></i>
+          </div>
+          <div class="space-y-1.5 pt-1">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-mono text-amber-400">Baseline:</span>
+              <span id="metricAsrBaseline" class="text-xs font-mono font-bold text-amber-300">--% (0/0)</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-mono text-emerald-400">Hardened:</span>
+              <span id="metricAsrHardened" class="text-xs font-mono font-bold text-emerald-300">--% (0/0)</span>
+            </div>
+          </div>
+          <p class="text-[10px] text-slate-500 border-t border-slate-800/80 pt-1.5">Lower is better for Hardened.</p>
+        </div>
+
+        <!-- Card 2: Defense Success Rate (DSR) -->
+        <div class="bg-dark-900 border border-slate-800 rounded-xl p-4 space-y-2">
+          <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
+            <span>Defense Success (DSR)</span>
+            <i class="fa-solid fa-shield text-emerald-400"></i>
+          </div>
+          <div class="space-y-1.5 pt-1">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-mono text-amber-400">Baseline:</span>
+              <span id="metricDsrBaseline" class="text-xs font-mono font-bold text-amber-300">--% (0/0)</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-mono text-emerald-400">Hardened:</span>
+              <span id="metricDsrHardened" class="text-xs font-mono font-bold text-emerald-300">--% (0/0)</span>
+            </div>
+          </div>
+          <p class="text-[10px] text-slate-500 border-t border-slate-800/80 pt-1.5">Higher is better for Hardened.</p>
+        </div>
+
+        <!-- Card 3: False Block Rate (FBR) -->
+        <div class="bg-dark-900 border border-slate-800 rounded-xl p-4 space-y-2">
+          <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
+            <span>False Block (FBR)</span>
+            <i class="fa-solid fa-ban text-amber-400"></i>
+          </div>
+          <div class="space-y-1.5 pt-1">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-mono text-amber-400">Baseline:</span>
+              <span id="metricFbrBaseline" class="text-xs font-mono font-bold text-amber-300">--% (0/0)</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-mono text-emerald-400">Hardened:</span>
+              <span id="metricFbrHardened" class="text-xs font-mono font-bold text-emerald-300">--% (0/0)</span>
+            </div>
+          </div>
+          <p class="text-[10px] text-slate-500 border-t border-slate-800/80 pt-1.5">Benign investigation regressions.</p>
+        </div>
+
+        <!-- Card 4: Canary Leakage Rate -->
+        <div class="bg-dark-900 border border-slate-800 rounded-xl p-4 space-y-2">
+          <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
+            <span>Canary Leakage</span>
+            <i class="fa-solid fa-key text-yellow-400"></i>
+          </div>
+          <div class="space-y-1.5 pt-1">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-mono text-amber-400">Baseline:</span>
+              <span id="metricClrBaseline" class="text-xs font-mono font-bold text-amber-300">--% (0/0)</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-mono text-emerald-400">Hardened:</span>
+              <span id="metricClrHardened" class="text-xs font-mono font-bold text-emerald-300">--% (0/0)</span>
+            </div>
+          </div>
+          <p class="text-[10px] text-slate-500 border-t border-slate-800/80 pt-1.5">Target: 0% in Hardened mode.</p>
+        </div>
+
+        <!-- Card 5: Citation Integrity Rate -->
+        <div class="bg-dark-900 border border-slate-800 rounded-xl p-4 space-y-2">
+          <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
+            <span>Citation Integrity</span>
+            <i class="fa-solid fa-check-double text-sky-400"></i>
+          </div>
+          <div class="space-y-1.5 pt-1">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-mono text-amber-400">Baseline:</span>
+              <span id="metricCirBaseline" class="text-xs font-mono font-bold text-amber-300">--% (0/0)</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-mono text-emerald-400">Hardened:</span>
+              <span id="metricCirHardened" class="text-xs font-mono font-bold text-emerald-300">--% (0/0)</span>
+            </div>
+          </div>
+          <p class="text-[10px] text-slate-500 border-t border-slate-800/80 pt-1.5">Grounded citations / Total.</p>
+        </div>
+
+      </div>
+
+      <!-- Scenarios & Results Table -->
+      <div class="bg-dark-900 border border-slate-800 rounded-xl shadow-sm overflow-hidden">
+        <div class="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <h3 class="text-sm font-semibold text-slate-200">Evaluation Scenario Matrix</h3>
+            <span id="scenarioCountBadge" class="text-xs font-mono bg-slate-800 text-slate-400 px-2 py-0.5 rounded">30 Scenarios</span>
+          </div>
+          <div class="flex items-center space-x-2 text-xs">
+            <span class="text-slate-500 font-mono text-[11px]">Click any row for complete red-team trace & evidence</span>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-950/80 text-slate-400 font-mono uppercase text-[11px] border-b border-slate-800">
+              <tr>
+                <th class="py-2.5 px-4">Scenario ID</th>
+                <th class="py-2.5 px-4">Name & Objective</th>
+                <th class="py-2.5 px-4">Threat Category</th>
+                <th class="py-2.5 px-4">Type</th>
+                <th class="py-2.5 px-4">Baseline Mode</th>
+                <th class="py-2.5 px-4">Hardened Mode</th>
+                <th class="py-2.5 px-4 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="evaluationTableBody" class="divide-y divide-slate-800/60 font-sans">
+              <!-- Dynamically populated -->
+              <tr>
+                <td colspan="7" class="py-8 text-center text-slate-500">
+                  <i class="fa-solid fa-spinner fa-spin text-lg mb-2"></i>
+                  <p>Loading red-team evaluation scenarios...</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+    <!-- END TAB 2: EVALUATION VIEW -->
+
   </main>
+
+  <!-- Scenario Details Modal -->
+  <div id="scenarioModal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-dark-900 border border-slate-700 rounded-xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+      <!-- Modal Header -->
+      <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <span id="modalScenarioId" class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-800">SCN-DIR-01</span>
+          <h3 id="modalScenarioName" class="text-sm font-bold text-white">Scenario Details</h3>
+        </div>
+        <button id="closeModalBtn" class="text-slate-400 hover:text-slate-200 transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-5 overflow-y-auto space-y-4 text-xs text-slate-300">
+        <div>
+          <h4 class="font-semibold text-slate-400 uppercase tracking-wider text-[11px] mb-1">Description</h4>
+          <p id="modalDescription" class="bg-dark-950 p-2.5 rounded border border-slate-800 text-slate-300"></p>
+        </div>
+
+        <div>
+          <h4 class="font-semibold text-slate-400 uppercase tracking-wider text-[11px] mb-1">Adversarial Query / Prompt</h4>
+          <pre id="modalQuery" class="bg-dark-950 p-2.5 rounded border border-slate-800 text-slate-200 font-mono text-[11px] whitespace-pre-wrap"></pre>
+        </div>
+
+        <div>
+          <h4 class="font-semibold text-slate-400 uppercase tracking-wider text-[11px] mb-1">Expected Security Property</h4>
+          <p id="modalExpected" class="bg-dark-950 p-2.5 rounded border border-slate-800 text-emerald-400 font-mono"></p>
+        </div>
+
+        <!-- Baseline vs Hardened Comparative Trace in Modal -->
+        <div id="modalTraceSection" class="space-y-3 pt-2 border-t border-slate-800">
+          <h4 class="font-semibold text-slate-300 uppercase tracking-wider text-[11px]">Latest Evaluation Execution Trace</h4>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-dark-950 p-3 rounded-lg border border-slate-800 space-y-1.5">
+              <span class="text-[11px] font-mono font-bold text-amber-400">Baseline Agent:</span>
+              <p id="modalBaselineOutcome" class="text-[11px] text-slate-400 italic">Not evaluated yet</p>
+            </div>
+            <div class="bg-dark-950 p-3 rounded-lg border border-slate-800 space-y-1.5">
+              <span class="text-[11px] font-mono font-bold text-emerald-400">Hardened Agent:</span>
+              <p id="modalHardenedOutcome" class="text-[11px] text-slate-400 italic">Not evaluated yet</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-5 py-3 border-t border-slate-800 bg-slate-950/50 flex justify-end">
+        <button id="modalDismissBtn" class="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
 
   <footer class="border-t border-slate-800/80 px-6 py-4 text-center text-xs text-slate-500 bg-dark-950">
     <p>GuardRail AI Red-Team & MCP Security Laboratory • 100% Synthetic Local Data • For Educational & Research Use</p>

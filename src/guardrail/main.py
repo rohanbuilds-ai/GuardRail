@@ -10,16 +10,25 @@ Endpoints:
 
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import List
-from fastapi import FastAPI, HTTPException, Request, status
+from typing import List, Literal, Optional
+from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader
+from pydantic import BaseModel, Field
 
 from guardrail.agent.investigator import AgentInvestigator
 from guardrail.agent.orchestrator import AgentOrchestrator
 from guardrail.config import PROJECT_ROOT, settings
+from guardrail.evaluation import (
+    ALL_EVALUATION_SCENARIOS,
+    EvaluationRunner,
+    EvaluationScenario,
+    EvaluationSuiteResult,
+    export_suite_to_csv,
+    export_suite_to_json,
+)
 from guardrail.storage.database import (
     get_all_incidents,
     get_db_connection,
@@ -147,6 +156,96 @@ async def investigate_incident(request: InvestigationRequest):
         return response
     finally:
         conn.close()
+
+
+class EvaluationRunRequest(BaseModel):
+    """Payload to trigger an evaluation run."""
+
+    scenario_ids: Optional[List[str]] = Field(
+        default=None, description="List of scenario IDs to run. Defaults to all 30 scenarios."
+    )
+    execution_modes: Optional[List[Literal["baseline", "hardened"]]] = Field(
+        default=None, description="Execution modes to evaluate. Defaults to ['baseline', 'hardened']."
+    )
+
+
+# In-memory storage for latest evaluation run
+_latest_evaluation_result: Optional[EvaluationSuiteResult] = None
+
+
+@app.get("/api/scenarios", response_model=List[EvaluationScenario], tags=["Evaluation"])
+async def list_evaluation_scenarios(
+    category: Optional[str] = None,
+    is_adversarial: Optional[bool] = None,
+):
+    """List all available red-team evaluation scenarios with optional category and adversarial filtering."""
+    results = ALL_EVALUATION_SCENARIOS
+    if category:
+        results = [s for s in results if s.category.value == category or s.category == category]
+    if is_adversarial is not None:
+        results = [s for s in results if s.is_adversarial == is_adversarial]
+    return results
+
+
+@app.post("/api/evaluations/run", response_model=EvaluationSuiteResult, tags=["Evaluation"])
+async def run_evaluation_suite(payload: Optional[EvaluationRunRequest] = None):
+    """Trigger red-team evaluation run across scenarios in Baseline and Hardened modes."""
+    global _latest_evaluation_result
+
+    req = payload or EvaluationRunRequest()
+    runner = EvaluationRunner()
+    result = await runner.run_suite(
+        scenario_ids=req.scenario_ids,
+        execution_modes=req.execution_modes,
+    )
+    _latest_evaluation_result = result
+    return result
+
+
+@app.get("/api/evaluations/latest", response_model=EvaluationSuiteResult, tags=["Evaluation"])
+async def get_latest_evaluation():
+    """Retrieve the most recent evaluation suite results."""
+    global _latest_evaluation_result
+    if _latest_evaluation_result is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No evaluation run available. Please execute a run first via POST /api/evaluations/run.",
+        )
+    return _latest_evaluation_result
+
+
+@app.get("/api/evaluations/export/json", tags=["Evaluation"])
+async def export_evaluation_json():
+    """Download the latest evaluation results as structured JSON."""
+    global _latest_evaluation_result
+    if _latest_evaluation_result is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No evaluation run available to export. Run an evaluation first via POST /api/evaluations/run.",
+        )
+    json_data = export_suite_to_json(_latest_evaluation_result)
+    return Response(
+        content=json_data,
+        media_type="application/json",
+        headers={"Content-Disposition": f"attachment; filename={_latest_evaluation_result.run_id}.json"},
+    )
+
+
+@app.get("/api/evaluations/export/csv", tags=["Evaluation"])
+async def export_evaluation_csv():
+    """Download the latest evaluation results as tabular CSV."""
+    global _latest_evaluation_result
+    if _latest_evaluation_result is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No evaluation run available to export. Run an evaluation first via POST /api/evaluations/run.",
+        )
+    csv_data = export_suite_to_csv(_latest_evaluation_result)
+    return Response(
+        content=csv_data,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={_latest_evaluation_result.run_id}.csv"},
+    )
 
 
 @app.get("/", response_class=HTMLResponse, tags=["UI"])

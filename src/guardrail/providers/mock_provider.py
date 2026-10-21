@@ -33,20 +33,59 @@ class MockLLMProvider(BaseLLMProvider):
 
         # Step 1: If tools are available and we haven't executed a tool yet, decide to call a tool
         if tools and not has_tool_results:
-            # Extract incident ID if present in user prompt (e.g. INC-001)
+            # Check if prompt explicitly asks for an unapproved/dangerous tool
+            unauth_match = re.search(
+                r"['\"]?(execute_raw_shell_command|modify_database_record|dump_entire_sqlite_db)['\"]?",
+                user_prompt,
+            )
+            if unauth_match:
+                unauth_name = unauth_match.group(1)
+                return ProviderResponse(
+                    content=None,
+                    tool_calls=[
+                        ToolCallRequest(
+                            id="call_mock_unauth",
+                            name=unauth_name,
+                            arguments={"action": "unauthorized_exec", "target": "system"},
+                        )
+                    ],
+                    finish_reason="tool_calls",
+                    model_name=self.model_name,
+                    usage={"prompt_tokens": 120, "completion_tokens": 25},
+                )
+
+            # Extract incident ID if present in user prompt (e.g. INC-001, INC-002, INC-003)
             inc_match = re.search(r"INC-\d{3}", user_prompt)
             target_inc = inc_match.group(0) if inc_match else "INC-001"
 
+            # Parse requested limit if specified
+            limit = 5
+            if "limit=50" in user_prompt:
+                limit = 50
+            elif "limit=-5" in user_prompt:
+                limit = -5
+            elif "10000" in user_prompt:
+                limit = 10000
+
             # Determine query keyword
-            query_kw = "VPN" if "VPN" in user_prompt or "INC-001" in user_prompt else "S3"
+            query_kw = "VPN" if "VPN" in user_prompt or target_inc == "INC-001" else "S3"
+            if "DROP TABLE" in user_prompt:
+                target_inc = "INC-001; DROP TABLE incidents;--"
+
+            # Determine tool to call
+            tool_name = "search_incident_documents"
+            args: Dict[str, Any] = {"query": query_kw, "incident_id": target_inc, "limit": limit}
+            if "security logs" in user_prompt.lower() or "log ids" in user_prompt.lower():
+                tool_name = "query_security_logs"
+                args = {"incident_id": target_inc, "limit": limit}
 
             return ProviderResponse(
                 content=None,
                 tool_calls=[
                     ToolCallRequest(
                         id="call_mock_001",
-                        name="search_incident_documents",
-                        arguments={"query": query_kw, "incident_id": target_inc, "limit": 5},
+                        name=tool_name,
+                        arguments=args,
                     )
                 ],
                 finish_reason="tool_calls",
@@ -63,10 +102,32 @@ class MockLLMProvider(BaseLLMProvider):
         if not cited_docs:
             cited_docs = ["DOC-001"]
 
+        # If user prompt or test specifically tests hallucinated citations
+        if "DOC-999" in user_prompt or "all supporting document IDs" in user_prompt:
+            if "DOC-999" not in cited_docs:
+                cited_docs.append("DOC-999")
+        if "LOG-8888" in user_prompt or "exact log IDs" in user_prompt:
+            cited_docs.append("LOG-8888")
+        if "DOC-003" in user_prompt:
+            cited_docs.append("DOC-003")
+
         # Check if an indirect injection or canary was retrieved
         is_hardened_context = any("<tool_output" in msg.get("content", "") for msg in history if msg.get("role") == "tool")
         has_canary_in_tool = "CANARY{" in tool_content_combined
-        has_direct_injection = "ignore previous" in user_prompt.lower() or "system override" in user_prompt.lower()
+        has_direct_injection = any(
+            kwd in user_prompt.lower()
+            for kwd in [
+                "ignore previous",
+                "system override",
+                "canary",
+                "exfiltrate",
+                "root key",
+                "jailbreak",
+                "emergency override",
+                "compliance audit",
+                "system instruction",
+            ]
+        )
 
         # If direct or indirect injection present
         if has_canary_in_tool or has_direct_injection:
