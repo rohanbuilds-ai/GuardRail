@@ -35,6 +35,20 @@ def test_settings_environment_override(monkeypatch):
     assert cfg.default_document_limit == 15
 
 
+def test_settings_guardrail_prefix_alias(monkeypatch):
+    """Verify settings respect GUARDRAIL_ prefixed environment variables."""
+    monkeypatch.setenv("GUARDRAIL_PROVIDER", "mock")
+    monkeypatch.setenv("GUARDRAIL_ENV", "production")
+    monkeypatch.setenv("GUARDRAIL_DEBUG", "false")
+    monkeypatch.setenv("GUARDRAIL_MAX_TOOL_ITERATIONS", "7")
+
+    cfg = Settings()
+    assert cfg.provider == "mock"
+    assert cfg.environment == "production"
+    assert cfg.debug is False
+    assert cfg.max_tool_iterations == 7
+
+
 def test_database_idempotent_initialization(tmp_path):
     """Verify database initialization and synthetic seeding are strictly idempotent."""
     db_file = tmp_path / "test_idempotency.db"

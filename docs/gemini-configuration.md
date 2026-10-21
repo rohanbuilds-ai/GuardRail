@@ -1,4 +1,4 @@
-# Optional Google Gemini Configuration & Zero-Cost Policy
+﻿# Optional Google Gemini Configuration & Zero-Cost Policy
 
 ## 1. Zero-Cost Policy by Default
 
