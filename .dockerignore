@@ -1,0 +1,40 @@
+# Git and repository metadata
+.git
+.gitignore
+.github
+
+# Virtual environments
+.venv
+venv
+env
+
+# Python byte code and caches
+__pycache__
+*.py[cod]
+*$py.class
+*.egg-info
+dist
+build
+
+# Test caches and coverage
+.pytest_cache
+.coverage
+htmlcov
+tests
+
+# Secrets and environment configurations
+.env
+.env.*
+!.env.example
+
+# Runtime SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Documentation and editor files
+docs
+.vscode
+.idea
+*.swp
+*.swo
