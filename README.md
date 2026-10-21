@@ -2,7 +2,7 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](pyproject.toml)
 [![Architecture](https://img.shields.io/badge/architecture-FastAPI%20%2B%20MCP%20%2B%20SQLite-emerald.svg)](docs/architecture.md)
-[![Testing](https://img.shields.io/badge/tests-75%20passed%20(100%25)-brightgreen.svg)](tests/)
+[![Testing](https://img.shields.io/badge/tests-76%20passed%20(100%25)-brightgreen.svg)](tests/)
 [![Security](https://img.shields.io/badge/security-code--enforced%20RBAC%20%26%20Fencing-red.svg)](docs/security-controls.md)
 [![License](https://img.shields.io/badge/license-MIT-purple.svg)](LICENSE)
 
@@ -83,7 +83,7 @@ graph TD
 - **Database**: SQLite with parameterized SQL and deterministic synthetic seed data (RFC 5737 IPs).
 - **LLM Providers**: Deterministic offline `MockLLMProvider` (default) + optional `google-genai` Gemini adapter.
 - **Containerization & CI**: Multi-stage `Dockerfile`, `docker-compose.yml`, and GitHub Actions workflow.
-- **Testing**: `pytest`, `pytest-asyncio`, and `httpx` (75 passing tests).
+- **Testing**: `pytest`, `pytest-asyncio`, and `httpx` (76 passing tests).
 
 ---
 
@@ -117,7 +117,7 @@ Open **[http://127.0.0.1:8000/](http://127.0.0.1:8000/)** in your browser.
 ## Running Tests & Static Checks
 
 ```powershell
-# Run the complete test suite (75 tests)
+# Run the complete test suite (76 tests)
 uv run pytest -v
 
 # Run static syntax compilation check
