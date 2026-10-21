@@ -36,7 +36,13 @@ def test_settings_environment_override(monkeypatch):
 
 
 def test_settings_guardrail_prefix_alias(monkeypatch):
-    """Verify settings respect GUARDRAIL_ prefixed environment variables."""
+    """Verify settings respect GUARDRAIL_ prefixed environment variables over generic ones."""
+    # Even if generic environment variables are set in the runner
+    monkeypatch.setenv("ENVIRONMENT", "testing")
+    monkeypatch.setenv("PROVIDER", "gemini")
+    monkeypatch.setenv("DEBUG", "true")
+
+    # Specific GUARDRAIL_ prefixes must take precedence
     monkeypatch.setenv("GUARDRAIL_PROVIDER", "mock")
     monkeypatch.setenv("GUARDRAIL_ENV", "production")
     monkeypatch.setenv("GUARDRAIL_DEBUG", "false")

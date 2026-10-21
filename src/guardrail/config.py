@@ -28,41 +28,41 @@ class Settings(BaseSettings):
     app_name: str = "GuardRail Secure AI Lab"
     environment: Literal["development", "testing", "production"] = Field(
         default="development",
-        validation_alias=AliasChoices("environment", "guardrail_env"),
+        validation_alias=AliasChoices("guardrail_env", "environment"),
     )
     debug: bool = Field(
         default=True,
-        validation_alias=AliasChoices("debug", "guardrail_debug"),
+        validation_alias=AliasChoices("guardrail_debug", "debug"),
     )
 
     # Database configuration
     database_path: str = Field(
         default=str(PROJECT_ROOT / "guardrail.db"),
-        validation_alias=AliasChoices("database_path", "guardrail_database_path"),
+        validation_alias=AliasChoices("guardrail_database_path", "database_path"),
     )
 
     # LLM Provider selection: 'mock' (offline) or 'gemini' (live API)
     provider: Literal["mock", "gemini"] = Field(
         default="mock",
-        validation_alias=AliasChoices("provider", "guardrail_provider"),
+        validation_alias=AliasChoices("guardrail_provider", "provider"),
     )
     gemini_api_key: str = Field(
         default="",
-        validation_alias=AliasChoices("gemini_api_key", "guardrail_gemini_api_key"),
+        validation_alias=AliasChoices("guardrail_gemini_api_key", "gemini_api_key"),
     )
 
     # Resource constraints
     max_tool_iterations: int = Field(
         default=5,
-        validation_alias=AliasChoices("max_tool_iterations", "guardrail_max_tool_iterations"),
+        validation_alias=AliasChoices("guardrail_max_tool_iterations", "max_tool_iterations"),
     )
     default_document_limit: int = Field(
         default=5,
-        validation_alias=AliasChoices("default_document_limit", "guardrail_default_document_limit"),
+        validation_alias=AliasChoices("guardrail_default_document_limit", "default_document_limit"),
     )
     default_log_limit: int = Field(
         default=20,
-        validation_alias=AliasChoices("default_log_limit", "guardrail_default_log_limit"),
+        validation_alias=AliasChoices("guardrail_default_log_limit", "default_log_limit"),
     )
 
 
